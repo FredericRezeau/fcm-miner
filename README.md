@@ -8,7 +8,7 @@
 
 ## Performance
 
-Currently (only) tested on <> and **MS Surface Pro 9** with a **12th Gen Intel Core i7** processor (10 cores). The miner achieved an **average hash rate of 8.1 million hash/sec**.
+Currently (only) tested on **MS Surface Pro 9** with a **12th Gen Intel Core i7** processor (10 cores). The miner achieved an **average hash rate of 8.1 million hash/sec**.
 
 I did not have time to test many C/C++ Keccak implementations, you may want to explore the other options here [keccak.team/software](https://keccak.team/software.html) for potential performance improvements (note that the standalone [XKCP implementation](https://github.com/XKCP/XKCP/blob/master/Standalone/CompactFIPS202/C/Keccak-more-compact.c) was much slower in my environment).
 
