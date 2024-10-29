@@ -13,7 +13,7 @@ Currently (only) tested on <> and **MS Surface Pro 9** with a **12th Gen Intel C
 I did not have time to test many C/C++ Keccak implementations, you may want to explore the other options here [keccak.team/software](https://keccak.team/software.html) for potential performance improvements (note that the standalone [XKCP implementation](https://github.com/XKCP/XKCP/blob/master/Standalone/CompactFIPS202/C/Keccak-more-compact.c) was much slower in my environment).
 
 
-![screen](miner_10_30_2024.png)
+![screen](https://github.com/FredericRezeau/fcm-miner/blob/main/miner%2010_30_2024.png)
 
 ## Requirements
 
