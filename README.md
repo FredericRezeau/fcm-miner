@@ -35,6 +35,20 @@ You may need to modify `CXXFLAGS` based on your environment or to fine-tune perf
 ./miner <block> <hash> <nonce> <difficulty> <message> <miner_address> [--verbose] [--max-threads <num> (default 4)] [--batch-size <size> (default 10000000)]
 ```
 
+### Parameters
+
+| Parameter              | Description                                                    | Default Value     |
+|------------------------|----------------------------------------------------------------|-------------------|
+| `<block>`              | The block number being mined. Last found block + 1.            | _(Required)_      |
+| `<hash>`               | Previous hash value (base64 encoded).                                  | _(Required)_      |
+| `<nonce>`              | Starting nonce value.                                          | _(Required)_      |
+| `<difficulty>`         | The mining difficulty level.                                   | _(Required)_      |
+| `<message>`            | Message to include in the block.                               | _(Required)_      |
+| `<miner_address>`      | `G` address for reward distribution. Must have FCM trustline.  | _(Required)_      |
+| `[--verbose]`            | Verbose mode incl. hash rate monitoring                      | Disabled          |
+| `[--max-threads <num>]`  | Specifies the maximum number of threads to use.              | 4                 |
+| `[--batch-size <size>]`  | Number of hash attempts per batch.                           | 10000000          |
+
 Example:
 ```bash
 ./miner 634 AAAAAM9LXIBl6/ByQIFVmjn977O/5LeR8VrUZ4GEEFs= 72651349000 9 HI GCWS2AKJCZ6U4YTTSXPHSYMR5EWXSKKVZSRV22NROAI7YRFJUZMBB3FN --max-threads 10 --batch-size 20000000 --verbose
