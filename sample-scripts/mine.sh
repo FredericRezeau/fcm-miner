@@ -29,6 +29,9 @@ batch_size=5000000
 # Verbose.
 verbose=true
 
+# Submission mode.
+submission_mode="server"
+
 # Fetch block data.
 response=$(curl -s "$data_endpoint")
 new_hash=$(echo "$response" | sed -n 's/.*"hash":"\([^"]*\)".*/\1/p')
@@ -51,9 +54,18 @@ if [ -z "$mined_hash" ] || [ -z "$mined_nonce" ]; then
     exit 1
 fi
 
-# Submit to Stellar.
-# I wanted to keep my private keys off the mining machine but you can also call the Stellar CLI directly here.
-submit_url="${submit_endpoint}?hash=${mined_hash}&nonce=${mined_nonce}&message=${message}&address=${miner_address}"
-echo "Submitting: $submit_url"
-response=$(curl -s "$submit_url")
-echo "$response"
+# Submit to network.
+if [ "$submission_mode" == "server" ]; then
+    submit_url="${submit_endpoint}?hash=${mined_hash}&nonce=${mined_nonce}&message=${message}&address=${miner_address}"
+    echo "Submitting: $submit_url"
+    response=$(curl -s "$submit_url")
+    echo "$response"
+elif [ "$submission_mode" == "cli" ]; then
+    PATH=$PATH:/root/.cargo/bin
+    command="stellar contract invoke --id CC5TSJ3E26YUYGYQKOBNJQLPX4XMUHUY7Q26JX53CJ2YUIZB5HVXXRV6 \
+        --source ADMIN --network MAINNET -- mine --hash $mined_hash --message \"$message\" --nonce $mined_nonce --miner \"$miner_address\""
+    response=$(eval "$command")
+    echo "$response"
+else
+    exit 1
+fi

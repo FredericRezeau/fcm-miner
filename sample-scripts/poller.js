@@ -1,11 +1,17 @@
 const express = require('express');
-const { SorobanRpc, xdr, Address, nativeToScVal, scValToNative } = require('@stellar/stellar-sdk');
+const { SorobanRpc, xdr, Address, nativeToScVal, scValToNative, TransactionBuilder, Contract, StrKey, Keypair } = require('@stellar/stellar-sdk');
 const { execSync } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const RPC_URL = process.env.RPC_URL;
 const CONTRACT_ID = 'CC5TSJ3E26YUYGYQKOBNJQLPX4XMUHUY7Q26JX53CJ2YUIZB5HVXXRV6';
+const NETWORK_PASSPHRASE = "Public Global Stellar Network ; September 2015";
+const rpc = new SorobanRpc.Server(RPC_URL);
+
+// If you specify a valid signer key here, the code will submit tx via SDK
+// otherwise it will use Stellar CLI
+const signer = "SECRET...KEY";
 
 let data = {
     hash: null,
@@ -16,7 +22,6 @@ let data = {
 async function getContractData() {
     let result;
     try {
-        const rpc = new SorobanRpc.Server(RPC_URL);
         const { val } = await rpc.getContractData(
             CONTRACT_ID,
             xdr.ScVal.scvLedgerKeyContractInstance()
@@ -70,30 +75,46 @@ async function fetchContent(delay) {
     }
 }
 
-function submit(data) {
-    // I run the server on another machine to keep my private keys off the mining one
-    // but the submit endpoint can also be replaced with a direct call to the CLI in the miner.sh file
-    // Alternativaly you can also submit via the Stellar SDK directly.
-    const command = `PATH=$PATH:/root/.cargo/bin stellar contract invoke --id ${CONTRACT_ID} \
+function cliSubmit(data) {
+        const command = `PATH=$PATH:/root/.cargo/bin stellar contract invoke --id ${CONTRACT_ID} \
         --source ADMIN --network MAINNET -- mine --hash ${data.hash} --message ${data.message} --nonce ${data.nonce} \
         --miner ${data.address}`;
-    console.log(command);
-    try {
-        const output = execSync(command, { encoding: 'utf8' });
-        console.log('Command:', output);
-    } catch (error) {
-        console.error('Failed:', error.message);
-    }
-    return command;
+    const output = execSync(command, { encoding: 'utf8' });
+    return { command, output };
+}
+
+async function sdkSubmit(data) {
+    const account = await rpc.getAccount(data.address);
+    const contract = new Contract(CONTRACT_ID);
+    const transaction = new TransactionBuilder(account, { fee: 10000000, networkPassphrase: NETWORK_PASSPHRASE })
+        .addOperation(contract.call("mine",
+            xdr.ScVal.scvBytes(Buffer.from(data.hash, "hex")),
+            xdr.ScVal.scvString(data.message),
+            nativeToScVal(data.nonce, { type: "u64" }),
+            new Address(data.address).toScVal()))
+        .setTimeout(300)
+        .build();
+    await rpc.prepareTransaction(transaction);
+    transaction.sign(Keypair.fromSecret(signer));
+    return await rpc.sendTransaction(transaction);
 }
 
 app.get('/data', (_req, res) => {
     res.json(data);
 });
 
-app.get('/submit', (req, res) => {
+app.get('/submit', async(req, res) => {
     const { hash, nonce, message, address } = req.query;
-    res.json({ result : submit({ hash, nonce, message, address }) });
+    try {
+        if (StrKey.isValidEd25519SecretSeed(signer)) {
+            res.json({ result : await sdkSubmit({ hash, nonce, message, address }) });
+        } else {
+            res.json({ result : cliSubmit({ hash, nonce, message, address }) });
+        }      
+    } catch (error) {
+        console.error('Failed to execute command:', error.message);
+        res.status(500).send(error.message);
+    }
 });
 
 app.listen(PORT, () => {
