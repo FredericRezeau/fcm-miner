@@ -21,4 +21,5 @@ profile-data/
 *.tmp
 *.pid
 *.sh
-sample_scripts/
+!sample-scripts/*
+setup/

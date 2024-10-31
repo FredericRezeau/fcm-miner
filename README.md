@@ -62,6 +62,52 @@ Output:
 }
 ```
 
+## Sample scripts
+
+These scripts are part of my current setup and shared here to help setup your environment. They automate block monitoring, handle the miner process, and manage submissions to the Stellar network.
+
+I run the poller on a separate machine to keep private keys off my machine (hence the `/submit` endpoint) but `mine.sh` could also be modified to submit via `Stellar CLI` directly if you run everything locally.
+
+- `poller.js`: Node.js server to fetch, provide block data and submit your transaction to the Stellar blockchain.
+- `poll.sh`: Bash script to poll for block changes and manage mining instance
+- `mine.sh`: Bash script to instantiate the mining process.
+  
+### Spin up the server
+
+Before starting, make sure the [Stellar CLI](https://developers.stellar.org/docs/build/smart-contracts/getting-started/setup) is installed if you plan to submit transactions directly via this setup.
+
+Run the following to set up and start the server:
+
+```bash
+cd sample-scripts
+npm install
+PORT=3000 RPC_URL="https://your-rpc-url" npm start
+```
+
+### Configure the scripts
+
+Edit the following variables in `poller.sh` and `mine.sh` to customize the setup for your environment:
+
+```bash
+data_endpoint="http://localhost:3000/data"
+submit_endpoint="http://localhost:3000/submit"
+nonce=0
+message="HI"
+miner_address="GCWS2...BB3FN"
+max_threads=10
+batch_size=5000000
+verbose=true
+```
+
+### Start mining
+
+To begin mining, run the poller script with:
+
+```bash
+cd sample-scripts
+./poll.sh
+```
+
 ## Disclaimer
 
 This software is experimental and provided "as-is," without warranties or guarantees of any kind. Use it at your own risk. Please ensure you understand the risks mining on Stellar mainnet before deploying this software.
