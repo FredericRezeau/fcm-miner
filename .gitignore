@@ -23,3 +23,4 @@ profile-data/
 *.sh
 !sample-scripts/*
 setup/
+*.prod.sh

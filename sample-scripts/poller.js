@@ -1,12 +1,11 @@
 const express = require('express');
-const { SorobanRpc, xdr, Address, nativeToScVal, scValToNative, TransactionBuilder, Contract, StrKey, Keypair } = require('@stellar/stellar-sdk');
+const { SorobanRpc, xdr, Address, nativeToScVal, scValToNative, TransactionBuilder, Contract, StrKey, Keypair, Networks } = require('@stellar/stellar-sdk');
 const { execSync } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const RPC_URL = process.env.RPC_URL;
 const CONTRACT_ID = 'CC5TSJ3E26YUYGYQKOBNJQLPX4XMUHUY7Q26JX53CJ2YUIZB5HVXXRV6';
-const NETWORK_PASSPHRASE = "Public Global Stellar Network ; September 2015";
 const rpc = new SorobanRpc.Server(RPC_URL);
 
 // If you specify a valid signer key here, the code will submit tx via SDK
@@ -86,7 +85,7 @@ function cliSubmit(data) {
 async function sdkSubmit(data) {
     const account = await rpc.getAccount(data.address);
     const contract = new Contract(CONTRACT_ID);
-    const transaction = new TransactionBuilder(account, { fee: 10000000, networkPassphrase: NETWORK_PASSPHRASE })
+    let transaction = new TransactionBuilder(account, { fee: '10000000', networkPassphrase: Networks.PUBLIC })
         .addOperation(contract.call("mine",
             xdr.ScVal.scvBytes(Buffer.from(data.hash, "hex")),
             xdr.ScVal.scvString(data.message),
@@ -94,7 +93,7 @@ async function sdkSubmit(data) {
             new Address(data.address).toScVal()))
         .setTimeout(300)
         .build();
-    await rpc.prepareTransaction(transaction);
+    transaction = await rpc.prepareTransaction(transaction);
     transaction.sign(Keypair.fromSecret(signer));
     return await rpc.sendTransaction(transaction);
 }

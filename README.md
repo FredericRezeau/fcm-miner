@@ -20,6 +20,8 @@ I did not have time to test many C/C++ Keccak implementations, you may want to e
 - **C++17** or higher
 - **C++ Standard Library** (no additional dependencies required)
 
+> **Note**: If running on Windows, I recommend using [WSL](https://learn.microsoft.com/en-us/windows/wsl/install).
+
 ## Compilation
 
 To compile the miner, simply run:
@@ -66,17 +68,17 @@ Output:
 
 These scripts are part of my current setup and shared here to help setup your environment. They automate block monitoring, handle the miner process, and manage submissions to the Stellar network.
 
-I run the poller on a separate machine to keep private keys off my machine (hence the `/submit` endpoint) but `mine.sh` could also be modified to submit via `Stellar CLI` directly if you run everything locally.
+I run the poller on a separate machine to keep private keys off my machine (hence the `/submit` endpoint) but `mine.sh` can submit via the `Stellar CLI` directly if you set the `submission_mode="cli"`.
 
-- `poller.js`: Node.js server to fetch, provide block data and submit your transaction to the Stellar blockchain.
-- `poll.sh`: Bash script to poll for block changes and manage mining instance
-- `mine.sh`: Bash script to instantiate the mining process.
+- `poller.js`: Node.js server to fetch, provide block data and *optionally* submit your transaction to the Stellar blockchain.
+- `poll.sh`: Bash script to poll for block changes and the manage miner the instances.
+- `mine.sh`: Bash script running the miner instance.
   
 ### Spin up the server
 
-Before starting, make sure the [Stellar CLI](https://developers.stellar.org/docs/build/smart-contracts/getting-started/setup) is installed if you plan to submit transactions directly via this setup.
+Before starting, make sure the [Stellar CLI](https://developers.stellar.org/docs/build/smart-contracts/getting-started/setup) is installed if you plan to submit transactions via CLI on Server (default). Alternatively you can set the `signer` secret key in `poller.js` so it will not require the CLI.
 
-Run the following to set up and start the server:
+Then run the following to set up and start the server:
 
 ```bash
 cd sample-scripts
@@ -86,7 +88,13 @@ PORT=3000 RPC_URL="https://your-rpc-url" npm start
 
 ### Configure the scripts
 
-Edit the following variables in `poller.sh` and `mine.sh` to customize the setup for your environment:
+Edit the following variable in `poll.sh` to customize the setup for your environment:
+
+```bash
+data_endpoint="http://localhost:3000/data"
+```
+
+Edit the following variables in `mine.sh` to customize the setup for your environment:
 
 ```bash
 data_endpoint="http://localhost:3000/data"

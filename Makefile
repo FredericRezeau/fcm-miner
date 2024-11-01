@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -O3 -march=native -DNDEBUG -flto -ffast-math -funroll-loops -fopenmp -mavx2 -pthread
+CXXFLAGS = -O3 -march=native -DNDEBUG -flto -ffast-math -funroll-loops -fopenmp -mavx2 -pthread -std=c++17
 TARGET = miner
 SRCS = miner.cpp
 OBJS = $(SRCS:.cpp=.o)
