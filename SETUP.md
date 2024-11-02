@@ -41,7 +41,14 @@ miner_address="GCWS2...BB3FN"
 max_threads=10
 batch_size=5000000
 verbose=true
+gpu=false
 ```
+
+#### Some notes on `max_threads` and `batch_size`
+
+- For CPU mining, `max_threads` should be set within the range of your available CPU cores.
+- For GPU mining, `max_threads` refers to the number of threads per block. It should be a multiple of the warp size (32) so using 256, 512, 768 is generally recommended.
+- The `batch_size` parameter determines the number of hashes processed in a single batch. Should be set based on your CPU or GPU performance, balance to minimize overhead and maximizing throughput.
 
 ### Start mining
 

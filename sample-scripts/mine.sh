@@ -20,7 +20,10 @@ miner_address="GCWS2AKJCZ6U4YTTSXPHSYMR5EWXSKKVZSRV22NROAI7YRFJUZMBB3FN"
 # Miner executable.
 miner_cmd="../miner"
 
-# Max threads.
+# GPU mode.
+gpu=false
+
+# Max threads or threads per block (GPU)
 max_threads=10
 
 # Batch size.
@@ -40,11 +43,19 @@ new_difficulty=$(echo "$response" | sed -n 's/.*"difficulty":\([0-9]*\).*/\1/p')
 new_block=$((new_block + 1))
 
 # Run miner.
+miner_command=("$miner_cmd" "$new_block" "$new_hash" "$nonce" "$new_difficulty" "$message" "$miner_address")
+if $verbose; then
+    miner_command+=("--verbose")
+fi
+miner_command+=("--max-threads" "$max_threads" "--batch-size" "$batch_size")
+if $gpu; then
+    miner_command+=("--gpu")
+fi
 echo "Running miner with hash=$new_hash, block=$new_block, difficulty=$new_difficulty, message=$message, address=$miner_address"
 if $verbose; then
-    output=$($miner_cmd "$new_block" "$new_hash" "$nonce" "$new_difficulty" "$message" "$miner_address" "--verbose" "--max-threads" "$max_threads" "--batch-size" "$batch_size" | tee /dev/tty)
+    output=$("${miner_command[@]}" | tee /dev/tty)
 else
-    output=$($miner_cmd "$new_block" "$new_hash" "$nonce" "$new_difficulty" "$message" "$miner_address" "--max-threads" "$max_threads" "--batch-size" "$batch_size")
+    output=$("${miner_command[@]}")
 fi
 
 # Retrieve hash and nonce.

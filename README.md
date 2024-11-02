@@ -20,9 +20,6 @@ With GPU acceleration enabled on an **NVIDIA GeForce RTX 3080** GPU, the miner a
 
 I did not have time to test many C/C++ Keccak implementations, you may want to explore the other options here [keccak.team/software](https://keccak.team/software.html) for potential performance improvements (note that the standalone [XKCP implementation](https://github.com/XKCP/XKCP/blob/master/Standalone/CompactFIPS202/C/Keccak-more-compact.c) was much slower in my environment).
 
-
-![screen](https://github.com/FredericRezeau/fcm-miner/blob/main/miner%2010_30_2024.png)
-
 ## Requirements
 
 - **C++17** or higher
@@ -30,8 +27,8 @@ I did not have time to test many C/C++ Keccak implementations, you may want to e
   
 ### GPU Build
 
-- **NVIDIA CUDA-Capable GPU** with compute capability 3.0 or higher.
-- [**NVIDIA CUDA Toolkit**](https://developer.nvidia.com/cuda-toolkit).
+- **NVIDIA CUDA-Capable GPU** with compute capability 3.0 or higher
+- [**NVIDIA CUDA Toolkit**](https://developer.nvidia.com/cuda-toolkit)
 
 ## Compilation
 
@@ -96,7 +93,7 @@ IMPORTANT: When using `--gpu`, the `--max-threads` parameter specifies the numbe
 
 The `sample-scripts` folder contains scripts from my current setup, shared here to help you set up your environment or serve as inspiration.
 
-Check [SETUP](SETUP.MD) for more details on how to use them.
+Check [SETUP](https://github.com/FredericRezeau/fcm-miner/blob/main/SETUP.md) for more details on how to use them.
 
 
 ## Disclaimer
