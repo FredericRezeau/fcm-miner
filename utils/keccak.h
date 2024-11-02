@@ -1,5 +1,7 @@
 #pragma once
 
+// MIT License
+
 // Keccak256 standalone implementation based on the NIST standard:
 // Reference: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf
 

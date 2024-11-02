@@ -97,3 +97,15 @@ void printHex(const std::vector<uint8_t>& data) {
     }
     std::cout << std::dec << std::endl;
 }
+
+std::string formatHashRate(double hashRate) {
+    const char* units[] = {"H/s", "KH/s", "MH/s", "GH/s", "TH/s", "PH/s", "EH/s"};
+    int unit = 0;
+    while (hashRate >= 1000.0 && unit < 6) {
+        hashRate /= 1000.0;
+        unit++;
+    }
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(2) << hashRate << " " << units[unit];
+    return oss.str();
+}

@@ -2,13 +2,21 @@
 
 ## C++ miner for [Stellar-Corium/FCM-sc](https://github.com/Stellar-Corium/FCM-sc)
 
-`fcm-miner` is a standalone miner for the [FCM Smart Contract](https://github.com/Stellar-Corium/FCM-sc) on the Stellar blockchain. It supports parallel processing and custom batch size.
+`fcm-miner` is a standalone miner for the [FCM Smart Contract](https://github.com/Stellar-Corium/FCM-sc) on the Stellar blockchain. It supports **CPU parallel processing**, optional **GPU (CUDA) acceleration**, and **custom batch sizes**.
 
-> **Note**: This project is experimental and was developed during my holiday, it may contain bugs. My main goal was to boost hashing speed on my available laptop and keep up with the increasing network hash rate and difficulty. Feel free to use, modify, or enhance it. I may also explore adding GPU support with OpenCL or CUDA in the future.
+> **Note**: This project is experimental and was developed during my holiday, it may contain bugs. My main goal was to boost hashing speed on my available laptop and keep up with the increasing network hash rate and difficulty. Feel free to use, modify, or enhance it. I have now added GPU support with CUDA and may explore OpenCL to support a wider range of hardware.
 
 ## Performance
 
-Currently (only) tested on **MS Surface Pro 9** with a **12th Gen Intel Core i7** processor (10 cores). The miner achieved an **average hash rate of 8.1 million hash/sec**.
+### CPU Performance
+
+Initially tested on **MS Surface Pro 9** with a **12th Gen Intel Core i7** processor (10 cores). The miner achieved an **average hash rate of 8.1 MH/s**.
+
+### GPU Performance
+
+With GPU acceleration enabled on an **NVIDIA GeForce RTX 3080** GPU, the miner achieved an average hash rate of **1.4 GH/s**. There is still room for improving the kernel code!
+
+### Keccak Hashing
 
 I did not have time to test many C/C++ Keccak implementations, you may want to explore the other options here [keccak.team/software](https://keccak.team/software.html) for potential performance improvements (note that the standalone [XKCP implementation](https://github.com/XKCP/XKCP/blob/master/Standalone/CompactFIPS202/C/Keccak-more-compact.c) was much slower in my environment).
 
@@ -19,17 +27,34 @@ I did not have time to test many C/C++ Keccak implementations, you may want to e
 
 - **C++17** or higher
 - **C++ Standard Library** (no additional dependencies required)
+  
+### GPU Build
 
-> **Note**: If running on Windows, I recommend using [WSL](https://learn.microsoft.com/en-us/windows/wsl/install).
+- **NVIDIA CUDA-Capable GPU** with compute capability 3.0 or higher.
+- [**NVIDIA CUDA Toolkit**](https://developer.nvidia.com/cuda-toolkit).
 
 ## Compilation
 
-To compile the miner, simply run:
+### CPU-Only Compilation
+
+To compile the miner without GPU support, simply run:
 
 ```bash
+make clean
 make
 ```
-You may need to modify `CXXFLAGS` based on your environment or to fine-tune performance.
+> Note: You may need to modify `CXXFLAGS` based on your environment or to fine-tune performance.
+
+### GPU-Enabled Compilation
+
+To compile the miner with GPU support, run:
+
+```bash
+make clean
+make GPU=1
+```
+
+> Note: Ensure that the NVIDIA CUDA Toolkit is installed and that nvcc is available in your PATH.
 
 ## Usage
 
@@ -48,8 +73,9 @@ You may need to modify `CXXFLAGS` based on your environment or to fine-tune perf
 | `<message>`            | Message to include in the block.                               | _(Required)_      |
 | `<miner_address>`      | `G` address for reward distribution. Must have FCM trustline.  | _(Required)_      |
 | `[--verbose]`            | Verbose mode incl. hash rate monitoring                      | Disabled          |
-| `[--max-threads <num>]`  | Specifies the maximum number of threads to use.              | 4                 |
-| `[--batch-size <size>]`  | Number of hash attempts per batch.                           | 10000000          |
+| `[--max-threads <num>]`  | Specifies the maximum number of threads (CPU) or threads per block (GPU).              | 4                |
+| `[--batch-size <size>]`  | Number of hash attempts per batch.                           | 10000000         |
+| `[--gpu]`  | Enable GPU mining                           | Disabled          |
 
 Example:
 ```bash
@@ -59,62 +85,19 @@ Example:
 Output:
 ```json
 {
- "hash": "0000000004166398a1c7e245335fc382e639bd8d82a08c376b5fa41a05dab522",
+  "hash": "0000000004166398a1c7e245335fc382e639bd8d82a08c376b5fa41a05dab522",
   "nonce": 72651349019
 }
 ```
 
-## Sample scripts
+IMPORTANT: When using `--gpu`, the `--max-threads` parameter specifies the number of threads per block in CUDA (e.g. 512, 768), and --batch-size should be adjusted based on your GPU capabilities.
 
-These scripts are part of my current setup and shared here to help setup your environment. They automate block monitoring, handle the miner process, and manage submissions to the Stellar network.
+## Getting Started
 
-I run the poller on a separate machine to keep private keys off my machine (hence the `/submit` endpoint) but `mine.sh` can submit via the `Stellar CLI` directly if you set the `submission_mode="cli"`.
+The `sample-scripts` folder contains scripts from my current setup, shared here to help you set up your environment or serve as inspiration.
 
-- `poller.js`: Node.js server to fetch, provide block data and *optionally* submit your transaction to the Stellar blockchain.
-- `poll.sh`: Bash script to poll for block changes and the manage miner the instances.
-- `mine.sh`: Bash script running the miner instance.
-  
-### Spin up the server
+Check [SETUP](SETUP.MD) for more details on how to use them.
 
-Before starting, make sure the [Stellar CLI](https://developers.stellar.org/docs/build/smart-contracts/getting-started/setup) is installed if you plan to submit transactions via CLI on Server (default). Alternatively you can set the `signer` secret key in `poller.js` so it will not require the CLI.
-
-Then run the following to set up and start the server:
-
-```bash
-cd sample-scripts
-npm install
-PORT=3000 RPC_URL="https://your-rpc-url" npm start
-```
-
-### Configure the scripts
-
-Edit the following variable in `poll.sh` to customize the setup for your environment:
-
-```bash
-data_endpoint="http://localhost:3000/data"
-```
-
-Edit the following variables in `mine.sh` to customize the setup for your environment:
-
-```bash
-data_endpoint="http://localhost:3000/data"
-submit_endpoint="http://localhost:3000/submit"
-nonce=0
-message="HI"
-miner_address="GCWS2...BB3FN"
-max_threads=10
-batch_size=5000000
-verbose=true
-```
-
-### Start mining
-
-To begin mining, run the poller script with:
-
-```bash
-cd sample-scripts
-./poll.sh
-```
 
 ## Disclaimer
 
@@ -122,15 +105,7 @@ This software is experimental and provided "as-is," without warranties or guaran
 
 ## License
 
-MIT License
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-
+[MIT License](LICENSE)
 
 
 

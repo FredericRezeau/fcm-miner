@@ -16,49 +16,72 @@
 #include <thread>
 #include <mutex>
 #include <functional>
+#include <sstream>
 
 #include "utils/keccak.h"
 #include "utils/misc.h"
+
+#ifndef GPU
+#define GPU 0
+#endif
+#if GPU
+extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset,
+    std::uint64_t batchSize, int difficulty, int threadsPerBlock, std::uint8_t* output, std::uint64_t* validNonce);
+#endif
 
 static const std::uint64_t defaultBatchSize = 10000000;
 static const int defaultMaxThreads = 4;
 static const int hashRateInterval = 5000;
 static std::atomic<bool> found(false);
-static std::atomic<std::uint64_t> totalHashes(0);
+static std::atomic<std::uint64_t> hashMetric(0);
 
-bool check(const std::vector<uint8_t>& hash, int difficulty) {
-   int zeroes = 0;
-    for (uint8_t byte : hash) {
-        zeroes += (byte == 0) ? 2 : ((byte >> 4) == 0 ? 1 : 0);
-        if (byte != 0 || zeroes >= difficulty) break;
+bool check(const std::vector<std::uint8_t>& hash, int difficulty) {
+    int zeros = 0;
+    for (std::uint8_t byte : hash) {
+        zeros += (byte == 0) ? 2 : ((byte >> 4) == 0 ? 1 : 0);
+        if (byte != 0 || zeros >= difficulty)
+            break;
     }
-    return zeroes >= difficulty;
+    return zeros >= difficulty;
 }
 
-std::pair<std::vector<uint8_t>, std::uint64_t> find(std::uint64_t block, const std::string& base64Hash,
-    std::uint64_t nonce, int difficulty, const std::string& message, const std::string& miner, bool verbose, std::uint64_t batchSize) {
-
+std::vector<std::uint8_t> prepare(std::uint64_t block, std::uint64_t nonce,
+    const std::string& base64Hash, const std::string& message, const std::string& miner, size_t& nonceOffset
+) {
     auto blockXdr = i64ToXdr(block);
     auto nonceXdr = i64ToXdr(nonce);
     auto hashXdr = hashToXdr(base64Hash);
     auto messageXdr = stringToXdr(message);
     auto minerXdr = addressToXdr(miner);
-
-    std::vector<uint8_t> data;
+    std::vector<std::uint8_t> data;
+    data.reserve(
+        blockXdr.size() +
+        messageXdr.size() +
+        hashXdr.size() +
+        nonceXdr.size() +
+        minerXdr.size()
+    );
     data.insert(data.end(), blockXdr.begin(), blockXdr.end());
     data.insert(data.end(), messageXdr.begin(), messageXdr.end());
     data.insert(data.end(), hashXdr.begin(), hashXdr.end());
     data.insert(data.end(), nonceXdr.begin(), nonceXdr.end());
     data.insert(data.end(), minerXdr.begin(), minerXdr.end());
+    nonceOffset = blockXdr.size() + messageXdr.size() + hashXdr.size();
+    return data;
+}
 
-    size_t nonceOffset = blockXdr.size() + messageXdr.size() + hashXdr.size();
+std::pair<std::vector<std::uint8_t>, std::uint64_t> find(std::uint64_t block, const std::string& base64Hash,
+    std::uint64_t nonce, int difficulty, const std::string& message, const std::string& miner,
+    bool verbose, std::uint64_t batchSize) {
     std::uint64_t counter = 0;
     int hashRateCounter = 0;
-
+    size_t nonceOffset = 0;
+    std::vector<std::uint8_t> data = prepare(block, nonce, base64Hash, message, miner, nonceOffset);
     if (verbose) {
-        std::cout << "Mining: batch: " << nonce << " block: " << block << " difficulty: " << difficulty << " hash: " << base64Hash << std::endl;
+        std::cout << "[CPU] Mining batch: " << nonce << " block: " << block
+                  << " difficulty: " << difficulty << " hash: " << base64Hash << std::endl;
         std::cout.flush();
-    } 
+    }
 
     Keccak256 keccak;
     while (!found.load()) {
@@ -67,7 +90,7 @@ std::pair<std::vector<uint8_t>, std::uint64_t> find(std::uint64_t block, const s
 
         keccak.reset();
         keccak.update(data.data(), data.size());
-        std::vector<uint8_t> result(32);
+        std::vector<std::uint8_t> result(32);
         keccak.finalize(result.data());
 
         if (check(result, difficulty)) {
@@ -81,37 +104,39 @@ std::pair<std::vector<uint8_t>, std::uint64_t> find(std::uint64_t block, const s
         }
 
         hashRateCounter += 1;
-        if(hashRateCounter == hashRateInterval){
-            totalHashes.fetch_add(hashRateCounter, std::memory_order_relaxed);
+        if (hashRateCounter == hashRateInterval) {
+            hashMetric.fetch_add(hashRateCounter, std::memory_order_relaxed);
             hashRateCounter = 0;
         }
     }
     return {{}, 0};
 }
 
-void monitorHashRate(bool verbose) {
+void monitorHashRate(bool verbose, bool gpu) {
     auto startTime = std::chrono::high_resolution_clock::now();
     while (!found.load()) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         auto currentTime = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsedTime = currentTime - startTime;
-        double hashRate = totalHashes.load() / elapsedTime.count();
+        double hashRate = gpu ? hashMetric.load() : hashMetric.load() / elapsedTime.count();
+        hashMetric.store(0);
+        startTime = currentTime;
         if (verbose && hashRate > 0) {
-            std::cout << std::fixed << std::setprecision(2) << "Hash Rate: " << hashRate << " hash/sec\n";
+            std::cout << std::fixed << std::setprecision(2)
+                      << (gpu ? "[GPU] Hash Rate: " : "[CPU] Hash Rate: ")
+                      << formatHashRate(hashRate) << "\n";
             std::cout.flush();
         }
-        startTime = currentTime;
-        totalHashes.store(0);
     }
 }
 
 int main(int argc, char* argv[]) {
     if (argc < 7) {
         std::cerr << "Usage: " << argv[0]
-            << " <block> <hash> <nonce> <difficulty> <message> <miner_address>\n"
-            << "  [--max-threads <num> (default: " << defaultMaxThreads << ")]\n"
-            << "  [--batch-size <num> (default: " << defaultBatchSize << ")]\n"
-            << "  [--verbose]\n";
+                  << " <block> <hash> <nonce> <difficulty> <message> <miner_address>\n"
+                  << "  [--max-threads <num> (default: " << defaultMaxThreads << ")]\n"
+                  << "  [--batch-size <num> (default: " << defaultBatchSize << ")]\n"
+                  << "  [--verbose]\n";
         return 1;
     }
 
@@ -123,6 +148,7 @@ int main(int argc, char* argv[]) {
     std::string miner = argv[6];
 
     bool verbose = false;
+    bool gpu = false;
     std::uint64_t batchSize = defaultBatchSize;
     int maxThreads = defaultMaxThreads;
     for (int i = 7; i < argc; ++i) {
@@ -132,54 +158,93 @@ int main(int argc, char* argv[]) {
             batchSize = std::stoll(argv[++i]);
         } else if (std::strcmp(argv[i], "--verbose") == 0) {
             verbose = true;
+        } else if (std::strcmp(argv[i], "--gpu") == 0) {
+        #if GPU
+                gpu = true;
+        #else
+            std::cerr << "GPU support not enabled in this build.\n";
+            return 1;
+        #endif
         }
     }
 
     try {
-        std::thread monitorThread(monitorHashRate, verbose);
-
-        std::uint64_t currentNonce = nonce;
-        std::vector<std::thread> threads;
-        std::pair<std::vector<uint8_t>, std::uint64_t> result;
-        std::mutex resultMutex;
-        while (!found.load()) {
-            while (threads.size() < maxThreads && !found.load()) {
-                std::uint64_t endNonce = currentNonce + batchSize;
-                threads.emplace_back([&, startNonce = currentNonce, endNonce]() {
-                    auto localResult = find(block, hash, startNonce, difficulty, message, miner, verbose, batchSize);
-                    if (!localResult.first.empty()) {
-                        std::lock_guard<std::mutex> lock(resultMutex);
-                        result = localResult;
-                        found.store(true);
-                    }
-                });
-                currentNonce = endNonce;
+        std::thread monitorThread([=]() { monitorHashRate(verbose, gpu); });
+        std::pair<std::vector<std::uint8_t>, std::uint64_t> result;
+        if (gpu) {
+            #if GPU
+            std::uint64_t currentNonce = nonce;
+            while (!found.load()) {
+                size_t nonceOffset = 0;
+                std::vector<std::uint8_t> data = prepare(block, currentNonce, hash,
+                    message, miner, nonceOffset);
+                std::vector<std::uint8_t> input(data.size());
+                std::memcpy(input.data(), data.data(), data.size());
+                std::vector<std::uint8_t> output(32);
+                std::uint64_t validNonce = 0;
+                if (verbose) {
+                    std::cout << "[GPU] Mining batch: " << currentNonce << " block: " << block
+                              << " difficulty: " << difficulty << " hash: " << hash << std::endl;
+                    std::cout.flush();
+                }
+                auto gpuStartTime = std::chrono::high_resolution_clock::now();
+                int res = executeKernel(input.data(), data.size(), currentNonce, nonceOffset,
+                                             batchSize, difficulty, maxThreads, output.data(), &validNonce);
+                auto gpuEndTime = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> elapsedTime = gpuEndTime - gpuStartTime;
+                hashMetric.store(batchSize / elapsedTime.count());
+                if (res == 1) {
+                    found.store(true);
+                    result.first.assign(output.begin(), output.end());
+                    result.second = validNonce;
+                    break;
+                }
+                currentNonce += batchSize;
             }
-            threads.erase(std::remove_if(threads.begin(), threads.end(),
-                [](std::thread& t) { 
-                    if (t.joinable()) { 
-                        t.join(); 
-                        return true; 
-                    }
-                    return false;
-                }), threads.end());
-        }
+            #endif
+        } else {
+            std::uint64_t currentNonce = nonce;
+            std::vector<std::thread> threads;
+            std::mutex resultMutex;
+            while (!found.load()) {
+                while (static_cast<int>(threads.size()) < maxThreads && !found.load()) {
+                    std::uint64_t endNonce = currentNonce + batchSize;
+                    threads.emplace_back([&, startNonce = currentNonce, endNonce]() {
+                        auto localResult = find(block, hash, startNonce, difficulty, message, miner, verbose, batchSize);
+                        if (!localResult.first.empty()) {
+                            std::lock_guard<std::mutex> lock(resultMutex);
+                            result = localResult;
+                            found.store(true);
+                        }
+                    });
+                    currentNonce = endNonce;
+                }
+                threads.erase(std::remove_if(threads.begin(), threads.end(),
+                    [](std::thread& t) {
+                        if (t.joinable()) {
+                            t.join();
+                            return true;
+                        }
+                        return false;
+                    }), threads.end());
+            }
 
-        for (auto& t : threads) {
-            if (t.joinable()) {
-                t.join();
+            for (auto& t : threads) {
+                if (t.joinable()) {
+                    t.join();
+                }
             }
         }
 
         if (!result.first.empty()) {
             std::cout << "{\n"
-                    << "  \"hash\": \"";
+                      << "  \"hash\": \"";
             for (const auto& byte : result.first) {
-                printf("%02x", byte);
+                std::printf("%02x", byte);
             }
             std::cout << "\",\n"
-                    << "  \"nonce\": " << result.second << "\n"
-                    << "}\n";
+                      << "  \"nonce\": " << result.second << "\n"
+                      << "}\n";
         } else {
             std::cout << "No valid hash found.\n";
         }
