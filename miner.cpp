@@ -42,7 +42,7 @@ bool check(const std::vector<std::uint8_t>& hash, int difficulty) {
         if (byte != 0 || zeros >= difficulty)
             break;
     }
-    return zeros >= difficulty;
+    return zeros == difficulty;
 }
 
 std::vector<std::uint8_t> prepare(std::uint64_t block, std::uint64_t nonce,
