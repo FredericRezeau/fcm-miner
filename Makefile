@@ -1,26 +1,26 @@
 CXX = g++
 NVCC = nvcc
 
-CXXFLAGS = -O3 -march=native -DNDEBUG -flto -ffast-math -funroll-loops \
-           -fopenmp -pthread -std=c++17 -Iutils
-NVCCFLAGS = -O3 -std=c++17 -Iutils
+COMMON_FLAGS = -O3 -DNDEBUG -ffast-math -funroll-loops \
+               -fopenmp -pthread -std=c++17 -Iutils
+GXX_FLAGS = $(COMMON_FLAGS) -march=native -flto
+NVCC_FLAGS = $(COMMON_FLAGS)
 
 TARGET = miner
-SRCS = miner.cpp
 
-OBJS = miner.o
 GPU ?= 0
 
-ifeq ($(GPU),1)
-    CXXFLAGS += -DGPU=1
-    CUDA_SRCS = kernel.cu
-    CUDA_OBJS = kernel.o
-    OBJS += kernel.o
+ifneq ($(filter 1 CUDA,$(GPU)),)
+    CXXFLAGS = $(GXX_FLAGS) -DGPU=1
+    NVCCFLAGS += -DGPU=1
+    SRCS = miner.cpp kernel.cu
+    OBJS = miner.o kernel.o
     LINKER = $(NVCC)
     LDFLAGS =
 else
-    CUDA_SRCS =
-    CUDA_OBJS =
+    CXXFLAGS = $(GXX_FLAGS) -DGPU=0
+    SRCS = miner.cpp
+    OBJS = miner.o
     LINKER = $(CXX)
     LDFLAGS =
 endif
@@ -28,15 +28,15 @@ endif
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(LINKER) -o $(TARGET) $(OBJS) $(LDFLAGS)
+	$(LINKER) -o $@ $(OBJS) $(LDFLAGS)
 
 clean:
 	rm -f $(TARGET) $(OBJS)
 
-%.o: %.cpp
+miner.o: miner.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-%.o: %.cu
+kernel.o: kernel.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
 .PHONY: all clean

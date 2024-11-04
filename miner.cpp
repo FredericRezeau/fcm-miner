@@ -21,12 +21,20 @@
 #include "utils/keccak.h"
 #include "utils/misc.h"
 
+#define GPU_NONE 0
+#define GPU_CUDA 1
+#define GPU_OPENCL 2
+
 #ifndef GPU
-#define GPU 0
+#define GPU GPU_NONE
 #endif
-#if GPU
+
+#if GPU == GPU_CUDA
+#include <cuda_runtime.h>
 extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset,
-    std::uint64_t batchSize, int difficulty, int threadsPerBlock, std::uint8_t* output, std::uint64_t* validNonce);
+    std::uint64_t batchSize, int difficulty, int threadsPerBlock, std::uint8_t* output, std::uint64_t* validNonce, bool showDeviceInfo);
+#elif GPU == GPU_OPENCL
+// NOT IMPLEMENTED
 #endif
 
 static const std::uint64_t defaultBatchSize = 10000000;
@@ -159,8 +167,8 @@ int main(int argc, char* argv[]) {
         } else if (std::strcmp(argv[i], "--verbose") == 0) {
             verbose = true;
         } else if (std::strcmp(argv[i], "--gpu") == 0) {
-        #if GPU
-                gpu = true;
+        #if GPU == GPU_CUDA || GPU == GPU_OPENCL
+            gpu = true;
         #else
             std::cerr << "GPU support not enabled in this build.\n";
             return 1;
@@ -172,8 +180,9 @@ int main(int argc, char* argv[]) {
         std::thread monitorThread([=]() { monitorHashRate(verbose, gpu); });
         std::pair<std::vector<std::uint8_t>, std::uint64_t> result;
         if (gpu) {
-            #if GPU
+            #if GPU == GPU_CUDA || GPU == GPU_OPENCL
             std::uint64_t currentNonce = nonce;
+            bool showDeviceInfo = verbose;
             while (!found.load()) {
                 size_t nonceOffset = 0;
                 std::vector<std::uint8_t> data = prepare(block, currentNonce, hash,
@@ -189,7 +198,8 @@ int main(int argc, char* argv[]) {
                 }
                 auto gpuStartTime = std::chrono::high_resolution_clock::now();
                 int res = executeKernel(input.data(), data.size(), currentNonce, nonceOffset,
-                                             batchSize, difficulty, maxThreads, output.data(), &validNonce);
+                                             batchSize, difficulty, maxThreads, output.data(), &validNonce, showDeviceInfo);
+                showDeviceInfo = false;
                 auto gpuEndTime = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double> elapsedTime = gpuEndTime - gpuStartTime;
                 hashMetric.store(batchSize / elapsedTime.count());

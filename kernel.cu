@@ -98,7 +98,7 @@ __global__ void run(int dataSize, std::uint64_t startNonce, int nonceOffset, std
 }
 
 extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset, std::uint64_t batchSize,
-    int difficulty, int threadsPerBlock, std::uint8_t* output, std::uint64_t* validNonce) {
+    int difficulty, int threadsPerBlock, std::uint8_t* output, std::uint64_t* validNonce, bool showDeviceInfo) {
     std::uint8_t* deviceOutput;
     std::size_t outputSize = 32 * sizeof(std::uint8_t);
     int found = 0;
@@ -112,6 +112,13 @@ extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t sta
     CUDA_CALL(cudaMalloc((void**)&deviceOutput, outputSize));
     CUDA_CALL(cudaMalloc((void**)&deviceNonce, sizeof(std::uint64_t)));
     CUDA_CALL(cudaMemset(deviceNonce, 0, sizeof(std::uint64_t)));
+
+    if (showDeviceInfo) {
+        printf("Device: %s\n", deviceProp.name);
+        printf("Compute capability: %d.%d\n", deviceProp.major, deviceProp.minor);
+        printf("Max threads/blocks: %d\n", deviceProp.maxThreadsPerBlock);
+        printf("Max grid size: [%d, %d, %d]\n", deviceProp.maxGridSize[0], deviceProp.maxGridSize[1], deviceProp.maxGridSize[2]);
+    }
 
     int threads = threadsPerBlock;
     std::uint64_t blocks = (batchSize + threads - 1) / threads;
