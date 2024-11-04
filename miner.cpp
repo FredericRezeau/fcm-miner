@@ -17,6 +17,7 @@
 #include <mutex>
 #include <functional>
 #include <sstream>
+#include <algorithm>
 
 #include "utils/keccak.h"
 #include "utils/misc.h"
