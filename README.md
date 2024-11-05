@@ -4,7 +4,7 @@
 
 `fcm-miner` is a standalone miner for the [FCM Smart Contract](https://github.com/Stellar-Corium/FCM-sc) on the Stellar blockchain. It supports **CPU parallel processing**, optional **GPU (CUDA) acceleration**, and **custom batch sizes**.
 
-> **Note**: This project is experimental and was developed during my holiday, it may contain bugs. My main goal was to boost hashing speed on my available laptop and keep up with the increasing network hash rate and difficulty. Feel free to use, modify, or enhance it. I have now added GPU support with CUDA and may explore OpenCL to support a wider range of hardware.
+> **Note**: This project is experimental and was developed during my holiday, it may contain bugs. My main goal was to boost hashing speed on my available laptop and keep up with the increasing network hash rate and difficulty. Feel free to use, modify, or enhance it. I have now added GPU support with **CUDA** and **OpenCL** - should help to support a wider range of hardware.
 
 ## Performance
 
@@ -14,7 +14,12 @@ Initially tested on **MS Surface Pro 9** with a **12th Gen Intel Core i7** proce
 
 ### GPU Performance
 
-With GPU acceleration enabled on an **NVIDIA GeForce RTX 3080** GPU, the miner achieved an average hash rate of **1.4 GH/s**. There is still room for improving the kernel code!
+With GPU acceleration enabled on an **NVIDIA GeForce RTX 4080** GPU, the miner achieved an average hash rate of **1.6 GH/s** (CUDA). The OpenCL implementation is about 18% slower. There is still room for improving the kernel code in both!
+
+| GPU           | Framework | Avg. Hash Rate |
+|---------------------|-----------|-------------------|
+| NVIDIA GeForce RTX 4080 | CUDA      | ~1.6 GH/s     |
+| NVIDIA GeForce RTX 4080 | OpenCL    | ~1.3 GH/s     |
 
 ### Keccak Hashing
 
@@ -25,10 +30,18 @@ I did not have time to test many C/C++ Keccak implementations, you may want to e
 - **C++17** or higher
 - **C++ Standard Library** (no additional dependencies required)
   
-### GPU Build
+### GPU Build (CUDA)
 
 - **NVIDIA CUDA-Capable GPU** with compute capability 3.0 or higher
 - [**NVIDIA CUDA Toolkit**](https://developer.nvidia.com/cuda-toolkit)
+
+### GPU Build (OpenCL)
+
+- **OpenCL 3.0** or higher
+- **OpenCL SDK**
+  - for NVIDIA: [NVIDIA CUDA Toolkit (includes OpenCL)](https://developer.nvidia.com/cuda-toolkit)
+  - for AMD: [AMD SDK (supports OpenCL)](https://developer.amd.com/tools-and-sdks/)
+  - for Intel: [Intel SDK for OpenCL](http://software.intel.com/en-us/vcsource/tools/opencl-sdk)
 
 ## Compilation
 
@@ -46,12 +59,18 @@ make
 
 To compile the miner with GPU support, run:
 
+CUDA:
+
 ```bash
 make clean
-make GPU=1
+make GPU=CUDA
 ```
-
-> Note: Ensure that the NVIDIA CUDA Toolkit is installed and that nvcc is available in your PATH.
+or OpenCL:
+```bash
+make clean
+make GPU=OPENCL
+```
+Note: The current OpenCL implementation uses the `cl_khr_int64_base_atomics` extension for atomic operations on 64-bit integers. Make sure your device supports it.
 
 ## Usage
 
@@ -87,7 +106,7 @@ Output:
 }
 ```
 
-IMPORTANT: When using `--gpu`, the `--max-threads` parameter specifies the number of threads per block in CUDA (e.g. 512, 768), and --batch-size should be adjusted based on your GPU capabilities.
+IMPORTANT: When using `--gpu`, the `--max-threads` parameter specifies the number of threads per block (e.g. 512, 768), and --batch-size should be adjusted based on your GPU capabilities.
 
 ## Getting Started
 

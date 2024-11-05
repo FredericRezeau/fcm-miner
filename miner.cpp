@@ -17,6 +17,7 @@
 #include <mutex>
 #include <functional>
 #include <sstream>
+#include <algorithm>
 
 #include "utils/keccak.h"
 #include "utils/misc.h"
@@ -34,7 +35,10 @@
 extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset,
     std::uint64_t batchSize, int difficulty, int threadsPerBlock, std::uint8_t* output, std::uint64_t* validNonce, bool showDeviceInfo);
 #elif GPU == GPU_OPENCL
-// NOT IMPLEMENTED
+#define CL_TARGET_OPENCL_VERSION 300
+#include <CL/cl.h>
+extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset,
+    std::uint64_t batchSize, int difficulty, int threadsPerBlock, std::uint8_t* output, std::uint64_t* validNonce, bool showDeviceInfo);
 #endif
 
 static const std::uint64_t defaultBatchSize = 10000000;
@@ -180,6 +184,11 @@ int main(int argc, char* argv[]) {
         std::thread monitorThread([=]() { monitorHashRate(verbose, gpu); });
         std::pair<std::vector<std::uint8_t>, std::uint64_t> result;
         if (gpu) {
+            #if GPU == GPU_CUDA
+                std::cout << "[GPU] CUDA" << std::endl;
+            #elif GPU == GPU_OPENCL
+                std::cout << "[GPU] OpenCL" << std::endl;
+            #endif
             #if GPU == GPU_CUDA || GPU == GPU_OPENCL
             std::uint64_t currentNonce = nonce;
             bool showDeviceInfo = verbose;

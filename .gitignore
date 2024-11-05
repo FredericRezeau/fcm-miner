@@ -21,6 +21,9 @@ profile-data/
 *.tmp
 *.pid
 *.sh
+*.obj
+*.makefile
+testminer
 !sample-scripts/*
 setup/
 *.prod.sh

@@ -17,6 +17,12 @@ ifneq ($(filter 1 CUDA,$(GPU)),)
     OBJS = miner.o kernel.o
     LINKER = $(NVCC)
     LDFLAGS =
+else ifneq ($(filter 2 OPENCL,$(GPU)),)
+    CXXFLAGS = $(GXX_FLAGS) -DGPU=2
+    SRCS = miner.cpp clprog.cpp
+    OBJS = miner.o clprog.o
+    LINKER = $(CXX)
+    LDFLAGS = -lOpenCL
 else
     CXXFLAGS = $(GXX_FLAGS) -DGPU=0
     SRCS = miner.cpp
