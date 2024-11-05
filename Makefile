@@ -22,13 +22,13 @@ else ifneq ($(filter 2 OPENCL,$(GPU)),)
     SRCS = miner.cpp clprog.cpp
     OBJS = miner.o clprog.o
     LINKER = $(CXX)
-    LDFLAGS = -lOpenCL
+    LDFLAGS = -pthread -lOpenCL
 else
     CXXFLAGS = $(GXX_FLAGS) -DGPU=0
     SRCS = miner.cpp
     OBJS = miner.o
     LINKER = $(CXX)
-    LDFLAGS =
+    LDFLAGS = -pthread
 endif
 
 all: $(TARGET)
