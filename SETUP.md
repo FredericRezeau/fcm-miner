@@ -58,3 +58,5 @@ To begin mining, run the poller script with:
 cd sample-scripts
 ./poll.sh
 ```
+
+If you have multiple GPUs, you can run each of them in seperate terminals using `./poll.sh {n}`
