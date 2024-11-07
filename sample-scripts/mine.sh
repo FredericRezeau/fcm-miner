@@ -17,8 +17,11 @@ message="HI"
 # Miner Stellar address (trustline to FCM required).
 miner_address="GCWS2AKJCZ6U4YTTSXPHSYMR5EWXSKKVZSRV22NROAI7YRFJUZMBB3FN"
 
+#device ordinal.
+device=${1:-0}
+
 # Miner executable.
-miner_cmd="../miner"
+miner_cmd=("../miner")
 
 # GPU mode.
 gpu=false
@@ -43,19 +46,19 @@ new_difficulty=$(echo "$response" | sed -n 's/.*"difficulty":\([0-9]*\).*/\1/p')
 new_block=$((new_block + 1))
 
 # Run miner.
-miner_command=("$miner_cmd" "$new_block" "$new_hash" "$nonce" "$new_difficulty" "$message" "$miner_address")
+miner_cmd+=("$new_block" "$new_hash" "$nonce" "$new_difficulty" "$message" "$miner_address")
 if $verbose; then
-    miner_command+=("--verbose")
+    miner_cmd+=("--verbose")
 fi
-miner_command+=("--max-threads" "$max_threads" "--batch-size" "$batch_size")
+miner_cmd+=("--max-threads" "$max_threads" "--batch-size" "$batch_size" "--device" "$device")
 if $gpu; then
-    miner_command+=("--gpu")
+    miner_cmd+=("--gpu")
 fi
-echo "Running miner with hash=$new_hash, block=$new_block, difficulty=$new_difficulty, message=$message, address=$miner_address"
+echo "Running miner with hash=$new_hash, block=$new_block, difficulty=$new_difficulty, message=$message, address=$miner_address, gpu=$gpu"
 if $verbose; then
-    output=$("${miner_command[@]}" | tee /dev/tty)
+    output=$(exec -a "miner_$device" "${miner_cmd[@]}" | tee /dev/tty)
 else
-    output=$("${miner_command[@]}")
+    output=$(exec -a "miner_$device" "${miner_cmd[@]}")
 fi
 
 # Retrieve hash and nonce.
