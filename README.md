@@ -2,7 +2,7 @@
 
 ## C++ miner for [Stellar-Corium/FCM-sc](https://github.com/Stellar-Corium/FCM-sc)
 
-`fcm-miner` is a standalone miner for the [FCM Smart Contract](https://github.com/Stellar-Corium/FCM-sc) on the Stellar blockchain. It supports **CPU parallel processing**, optional **GPU (CUDA) acceleration**, and **custom batch sizes**.
+`fcm-miner` is a standalone miner for the [FCM Smart Contract](https://github.com/Stellar-Corium/FCM-sc) on the Stellar blockchain. It supports **CPU parallel processing**, and optional **GPU acceleration with both CUDA and OpenCL**.
 
 > **Note**: This project is experimental and was developed during my holiday, it may contain bugs. My main goal was to boost hashing speed on my available laptop and keep up with the increasing network hash rate and difficulty. Feel free to use, modify, or enhance it. I have now added GPU support with **CUDA** and **OpenCL** - should help to support a wider range of hardware.
 
@@ -92,6 +92,7 @@ Note: The current OpenCL implementation uses the `cl_khr_int64_base_atomics` ext
 | `[--max-threads <num>]`  | Specifies the maximum number of threads (CPU) or threads per block (GPU).              | 4                |
 | `[--batch-size <size>]`  | Number of hash attempts per batch.                           | 10000000         |
 | `[--gpu]`  | Enable GPU mining                           | Disabled          |
+| `[--device]`  | Specify the device id                           | 0          |
 
 Example:
 ```bash

@@ -97,7 +97,7 @@ __global__ void run(int dataSize, std::uint64_t startNonce, int nonceOffset, std
     }
 }
 
-extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset, std::uint64_t batchSize,
+extern "C" int executeKernel(int deviceId, std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset, std::uint64_t batchSize,
     int difficulty, int threadsPerBlock, std::uint8_t* output, std::uint64_t* validNonce, bool showDeviceInfo) {
     std::uint8_t* deviceOutput;
     std::size_t outputSize = 32 * sizeof(std::uint8_t);
@@ -105,7 +105,8 @@ extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t sta
     int* deviceFound;
     std::uint64_t* deviceNonce;
     cudaDeviceProp deviceProp;
-    CUDA_CALL(cudaGetDeviceProperties(&deviceProp, 0));
+    CUDA_CALL(cudaSetDevice(deviceId));
+    CUDA_CALL(cudaGetDeviceProperties(&deviceProp, deviceId));
     CUDA_CALL(cudaMalloc((void**)&deviceFound, sizeof(int)));
     CUDA_CALL(cudaMemcpy(deviceFound, &found, sizeof(int), cudaMemcpyHostToDevice));
     CUDA_CALL(cudaMemcpyToSymbol(deviceData, data, dataSize));

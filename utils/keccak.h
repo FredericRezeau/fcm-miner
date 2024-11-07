@@ -95,7 +95,7 @@ private:
                 C[x] = state64[x] ^ state64[x + 5] ^ state64[x + 10] ^ state64[x + 15] ^ state64[x + 20];
 
             for (size_t x = 0; x < 5; ++x) {
-                D = C[(x + 4) % 5] ^ rotl64(C[(x + 1) % 5], 1);
+                D = C[((x == 0) ? 4 : x - 1)] ^ rotl64(C[((x == 4) ? 0 : (x + 1))], 1);
                 for (size_t y = 0; y < 25; y += 5)
                     state64[x + y] ^= D;
             }
@@ -113,7 +113,7 @@ private:
                 for (size_t x = 0; x < 5; ++x)
                     temp[x] = state64[y + x];
                 for (size_t x = 0; x < 5; ++x)
-                    state64[y + x] = temp[x] ^ (~temp[(x + 1) % 5] & temp[(x + 2) % 5]);
+                    state64[y + x] = temp[x] ^ ((~temp[((x == 4) ? 0 : (x + 1))]) & temp[((x >= 3) ? (x - 3) : (x + 2))]);
             }
 
             state64[0] ^= roundConstant;

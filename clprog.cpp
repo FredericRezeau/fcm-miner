@@ -37,16 +37,24 @@ void releaseResources(cl_context context, cl_command_queue commandQueue, cl_prog
     if (context) clReleaseContext(context);
 }
 
-extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset, std::uint64_t batchSize,
+extern "C" int executeKernel(int deviceId, std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset, std::uint64_t batchSize,
     int difficulty, int threadsPerBlock, std::uint8_t* output, std::uint64_t* validNonce, bool showDeviceInfo) {
     cl_int error;
     cl_platform_id platformId = nullptr;
-    cl_device_id deviceId = nullptr;
+    cl_device_id selectedDevice = nullptr;
     cl_uint numDevices;
-    cl_uint numPlatforms;
 
-    CL_CALL(clGetPlatformIDs(1, &platformId, &numPlatforms));
-    CL_CALL(clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, 1, &deviceId, &numDevices));
+    CL_CALL(clGetPlatformIDs(1, &platformId, nullptr));
+    CL_CALL(clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, 0, nullptr, &numDevices));
+
+    if (deviceId >= numDevices) {
+        std::cerr << "Invalid device ID" << std::endl;
+        return -1;
+    }
+
+    std::vector<cl_device_id> devices(numDevices);
+    CL_CALL(clGetDeviceIDs(platformId, CL_DEVICE_TYPE_GPU, numDevices, devices.data(), nullptr));
+    selectedDevice = devices[deviceId];
 
     if (showDeviceInfo) {
         char deviceName[256];
@@ -54,11 +62,11 @@ extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t sta
         size_t maxWorkGroupSize;
         size_t maxWorkItemSizes[3];
         cl_ulong globalMemSize;
-        CL_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_NAME, sizeof(deviceName), deviceName, nullptr));
-        CL_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(computeUnits), &computeUnits, nullptr));
-        CL_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, nullptr));
-        CL_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItemSizes), &maxWorkItemSizes, nullptr));
-        CL_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(globalMemSize), &globalMemSize, nullptr));
+        CL_CALL(clGetDeviceInfo(selectedDevice, CL_DEVICE_NAME, sizeof(deviceName), deviceName, nullptr));
+        CL_CALL(clGetDeviceInfo(selectedDevice, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(computeUnits), &computeUnits, nullptr));
+        CL_CALL(clGetDeviceInfo(selectedDevice, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, nullptr));
+        CL_CALL(clGetDeviceInfo(selectedDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItemSizes), &maxWorkItemSizes, nullptr));
+        CL_CALL(clGetDeviceInfo(selectedDevice, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(globalMemSize), &globalMemSize, nullptr));
         std::cout << "Device: " << deviceName << std::endl;
         std::cout << "Compute units: " << computeUnits << std::endl;
         std::cout << "Max work group size: " << maxWorkGroupSize << std::endl;
@@ -69,12 +77,12 @@ extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t sta
         std::cout << "Global memory size: " << (globalMemSize / (1024 * 1024)) << " MB" << std::endl;
     }
 
-    cl_context context = clCreateContext(nullptr, 1, &deviceId, nullptr, nullptr, &error);
+    cl_context context = clCreateContext(nullptr, 1, &selectedDevice, nullptr, nullptr, &error);
     if (!context) {
         std::cerr << "Error: " << error << std::endl;
         return -1;
     }
-    cl_command_queue commandQueue = clCreateCommandQueueWithProperties(context, deviceId, 0, &error);
+    cl_command_queue commandQueue = clCreateCommandQueueWithProperties(context, selectedDevice, 0, &error);
     if (!commandQueue) {
         std::cerr << "Error: " << error << std::endl;
         releaseResources(context, commandQueue, nullptr, nullptr, nullptr, 0);
@@ -102,12 +110,12 @@ extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t sta
         releaseResources(context, commandQueue, program, nullptr, nullptr, 0);
         return -1;
     }
-    error = clBuildProgram(program, 1, &deviceId, nullptr, nullptr, nullptr);
+    error = clBuildProgram(program, 1, &selectedDevice, nullptr, nullptr, nullptr);
     if (error != CL_SUCCESS) {
         size_t logSize;
-        clGetProgramBuildInfo(program, deviceId, CL_PROGRAM_BUILD_LOG, 0, NULL, &logSize);
+        clGetProgramBuildInfo(program, selectedDevice, CL_PROGRAM_BUILD_LOG, 0, NULL, &logSize);
         std::vector<char> buildLog(logSize);
-        clGetProgramBuildInfo(program, deviceId, CL_PROGRAM_BUILD_LOG, logSize, buildLog.data(), NULL);
+        clGetProgramBuildInfo(program, selectedDevice, CL_PROGRAM_BUILD_LOG, logSize, buildLog.data(), NULL);
         std::cerr << "Kernel build error: " << std::endl << buildLog.data() << std::endl;
         releaseResources(context, commandQueue, program, nullptr, nullptr, 0);
         return -1;
@@ -149,7 +157,7 @@ extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t sta
     }
 
     size_t maxWorkGroupSize;
-    clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &maxWorkGroupSize, NULL);
+    clGetDeviceInfo(selectedDevice, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &maxWorkGroupSize, NULL);
     size_t localWorkSize = std::min(static_cast<size_t>(threadsPerBlock), maxWorkGroupSize);
     size_t globalWorkSize = ((batchSize + localWorkSize - 1) / localWorkSize) * localWorkSize;
     error = clEnqueueNDRangeKernel(commandQueue, kernel, 1, nullptr, &globalWorkSize, &localWorkSize, 0, nullptr, nullptr);

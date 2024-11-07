@@ -1,6 +1,6 @@
 // MIT License
 
-// Keccak256 standalone CUDA implementation based on the NIST standard:
+// Keccak256 standalone OpenCL implementation based on the NIST standard:
 // Reference: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf
 
 // Additional C/C++ implementations for Keccak can be found here:

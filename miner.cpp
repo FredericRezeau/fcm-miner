@@ -32,12 +32,12 @@
 
 #if GPU == GPU_CUDA
 #include <cuda_runtime.h>
-extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset,
+extern "C" int executeKernel(int deviceId, std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset,
     std::uint64_t batchSize, int difficulty, int threadsPerBlock, std::uint8_t* output, std::uint64_t* validNonce, bool showDeviceInfo);
 #elif GPU == GPU_OPENCL
 #define CL_TARGET_OPENCL_VERSION 300
 #include <CL/cl.h>
-extern "C" int executeKernel(std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset,
+extern "C" int executeKernel(int deviceId, std::uint8_t* data, int dataSize, std::uint64_t startNonce, int nonceOffset,
     std::uint64_t batchSize, int difficulty, int threadsPerBlock, std::uint8_t* output, std::uint64_t* validNonce, bool showDeviceInfo);
 #endif
 
@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
                   << " <block> <hash> <nonce> <difficulty> <message> <miner_address>\n"
                   << "  [--max-threads <num> (default: " << defaultMaxThreads << ")]\n"
                   << "  [--batch-size <num> (default: " << defaultBatchSize << ")]\n"
-                  << "  [--verbose]\n";
+                  << "  [--device <num> (default 0)] [--verbose]\n";
         return 1;
     }
 
@@ -161,6 +161,7 @@ int main(int argc, char* argv[]) {
 
     bool verbose = false;
     bool gpu = false;
+    int deviceId = 0;
     std::uint64_t batchSize = defaultBatchSize;
     int maxThreads = defaultMaxThreads;
     for (int i = 7; i < argc; ++i) {
@@ -168,7 +169,9 @@ int main(int argc, char* argv[]) {
             maxThreads = std::stoi(argv[++i]);
         } else if (std::strcmp(argv[i], "--batch-size") == 0 && i + 1 < argc) {
             batchSize = std::stoll(argv[++i]);
-        } else if (std::strcmp(argv[i], "--verbose") == 0) {
+        } else if (std::strcmp(argv[i], "--device") == 0 && i + 1 < argc) {
+            deviceId = std::stoi(argv[++i]);
+        }  else if (std::strcmp(argv[i], "--verbose") == 0) {
             verbose = true;
         } else if (std::strcmp(argv[i], "--gpu") == 0) {
         #if GPU == GPU_CUDA || GPU == GPU_OPENCL
@@ -206,7 +209,7 @@ int main(int argc, char* argv[]) {
                     std::cout.flush();
                 }
                 auto gpuStartTime = std::chrono::high_resolution_clock::now();
-                int res = executeKernel(input.data(), data.size(), currentNonce, nonceOffset,
+                int res = executeKernel(deviceId, input.data(), data.size(), currentNonce, nonceOffset,
                                              batchSize, difficulty, maxThreads, output.data(), &validNonce, showDeviceInfo);
                 showDeviceInfo = false;
                 auto gpuEndTime = std::chrono::high_resolution_clock::now();
