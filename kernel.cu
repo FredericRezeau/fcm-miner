@@ -28,15 +28,9 @@ __constant__ std::uint8_t deviceData[maxDataSize];
     } while (0)
 
 __device__ __forceinline__ void updateNonce(std::uint64_t val, std::uint8_t* buffer) {
-    // Xdr bytes first.
-    buffer[0] = 0;
-    buffer[1] = 0;
-    buffer[2] = 0;
-    buffer[3] = 5;
-    #pragma unroll 12
-    for (int i = 4; i < 12; i++) {
-        buffer[11 - (i - 4)] = static_cast<std::uint8_t>(val & 0xFF);
-        val >>= 8;
+    #pragma unroll 8
+    for (int i = 0; i < 8; i++) {
+        buffer[7 - i] = static_cast<std::uint8_t>(val >> (i * 8) & 0xFF);
     }
 }
 
@@ -72,16 +66,15 @@ __global__ void run(int dataSize, std::uint64_t startNonce, int nonceOffset, std
                                  int* __restrict__ found, std::uint8_t* __restrict__ output, std::uint64_t* __restrict__ validNonce) {
     std::uint64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     std::uint64_t stride = gridDim.x * blockDim.x;
-    if (idx >= batchSize || atomicAdd(found, 0) == 1)
+    if (dataSize > maxDataSize || idx >= batchSize || atomicAdd(found, 0) == 1)
         return;
     std::uint64_t nonceEnd = startNonce + batchSize;
+    std::uint8_t threadData[maxDataSize];
+    vCopy(threadData, deviceData, dataSize);
+    nonceOffset += 4;
 
     // Nonce distribution is based on thread id - spaced by stride.
     for (std::uint64_t nonce = startNonce + idx; nonce < nonceEnd; nonce += stride) {
-        std::uint8_t threadData[maxDataSize];
-        if (dataSize > maxDataSize)
-            return;
-        vCopy(threadData, deviceData, dataSize);
         updateNonce(nonce, &threadData[nonceOffset]);
         std::uint8_t hash[32];
         keccak256(threadData, dataSize, hash);

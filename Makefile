@@ -37,7 +37,7 @@ $(TARGET): $(OBJS)
 	$(LINKER) -o $@ $(OBJS) $(LDFLAGS)
 
 clean:
-	rm -f $(TARGET) $(OBJS)
+	rm -f $(TARGET) miner.o kernel.o clprog.o
 
 miner.o: miner.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@

@@ -13,14 +13,8 @@
 void keccak256(const uchar* input, size_t size, uchar* output);  // See utils/keccak.cl (concatenated at runtime).
 
 inline void updateNonce(ulong val, uchar* buffer) {
-    // XDR bytes first.
-    buffer[0] = 0;
-    buffer[1] = 0;
-    buffer[2] = 0;
-    buffer[3] = 5;
-    for (int i = 4; i < 12; i++) {
-        buffer[11 - (i - 4)] = (uchar)(val & 0xFF);
-        val >>= 8;
+    for (int i = 0; i < 8; i++) {
+        buffer[7 - i] = (uchar)((val >> (i * 8)) & 0xFF);
     }
 }
 
@@ -46,17 +40,15 @@ __kernel void run(int dataSize, ulong startNonce, int nonceOffset, ulong batchSi
 ) {
     ulong idx = get_global_id(0);
     ulong stride = get_global_size(0);
-    if (idx >= batchSize || atomic_load(found) == 1)
+    if (dataSize > maxDataSize || idx >= batchSize || atomic_load(found) == 1)
         return;
-
     ulong nonceEnd = startNonce + batchSize;
+    uchar threadData[maxDataSize];
+    copy(threadData, deviceData, dataSize);
+    nonceOffset += 4;
 
     // Nonce distribution is based on thread id - spaced by stride.
     for (ulong nonce = startNonce + idx; nonce < nonceEnd; nonce += stride) {
-        uchar threadData[maxDataSize];
-        if (dataSize > maxDataSize)
-            return;
-        copy(threadData, deviceData, dataSize);
         updateNonce(nonce, &threadData[nonceOffset]);
         uchar hash[32];
         keccak256(threadData, dataSize, hash);
