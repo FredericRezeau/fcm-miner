@@ -12,10 +12,10 @@ submit_endpoint="http://localhost:3000/submit"
 nonce=0
 
 # Message.
-message="HI"
+message=${3:-"HI"}
 
 # Miner Stellar address (trustline to FCM required).
-miner_address="GCWS2AKJCZ6U4YTTSXPHSYMR5EWXSKKVZSRV22NROAI7YRFJUZMBB3FN"
+miner_address=${2}
 
 #device ordinal.
 device=${1:-0}
@@ -75,6 +75,7 @@ if [ "$submission_mode" == "server" ]; then
     response=$(curl -s "$submit_url")
     echo "$response"
 elif [ "$submission_mode" == "cli" ]; then
+    # If directly submitting via CLI, update ADMIN and MAINNET to match your setup.
     PATH=$PATH:/root/.cargo/bin
     command="stellar contract invoke --id CC5TSJ3E26YUYGYQKOBNJQLPX4XMUHUY7Q26JX53CJ2YUIZB5HVXXRV6 \
         --source ADMIN --network MAINNET -- mine --hash $mined_hash --message \"$message\" --nonce $mined_nonce --miner \"$miner_address\""

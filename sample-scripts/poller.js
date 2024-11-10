@@ -8,9 +8,14 @@ const RPC_URL = process.env.RPC_URL;
 const CONTRACT_ID = 'CC5TSJ3E26YUYGYQKOBNJQLPX4XMUHUY7Q26JX53CJ2YUIZB5HVXXRV6';
 const rpc = new SorobanRpc.Server(RPC_URL);
 
-// If you specify a valid signer key here, the code will submit tx via SDK
-// otherwise it will use Stellar CLI
-const signer = "SECRET...KEY";
+// Set to false to submit via SDK (.e.g no Stellar CLI in your environment)
+const useCli = true;
+
+// Map your miners secret keys to public keys here.
+const signers = {
+    "G...KEY1": "SECRET...KEY1",
+    "G...KEY2": "SECRET...KEY2"
+}
 
 let data = {
     hash: null,
@@ -74,28 +79,33 @@ async function fetchContent(delay) {
     }
 }
 
-function cliSubmit(data) {
+async function submit(data) {
+    if (!StrKey.isValidEd25519SecretSeed(signers[data.address])) {
+        console.error("Invalid address:", data.address);
+        return;
+    }
+    if (useCli) {
+        // Assuming network identity MAINNET is configured. Adjust to your environment.
         const command = `PATH=$PATH:/root/.cargo/bin stellar contract invoke --id ${CONTRACT_ID} \
-        --source ADMIN --network MAINNET -- mine --hash ${data.hash} --message ${data.message} --nonce ${data.nonce} \
-        --miner ${data.address}`;
-    const output = execSync(command, { encoding: 'utf8' });
-    return { command, output };
-}
-
-async function sdkSubmit(data) {
-    const account = await rpc.getAccount(data.address);
-    const contract = new Contract(CONTRACT_ID);
-    let transaction = new TransactionBuilder(account, { fee: '10000000', networkPassphrase: Networks.PUBLIC })
-        .addOperation(contract.call("mine",
-            xdr.ScVal.scvBytes(Buffer.from(data.hash, "hex")),
-            xdr.ScVal.scvString(data.message),
-            nativeToScVal(data.nonce, { type: "u64" }),
-            new Address(data.address).toScVal()))
-        .setTimeout(300)
-        .build();
-    transaction = await rpc.prepareTransaction(transaction);
-    transaction.sign(Keypair.fromSecret(signer));
-    return await rpc.sendTransaction(transaction);
+            --source ${signers[data.address]} --network MAINNET -- mine --hash ${data.hash} --message ${data.message} --nonce ${data.nonce} \
+            --miner ${data.address}`;
+        const output = execSync(command, { encoding: 'utf8' });
+        return { command, output };
+    } else {
+        const account = await rpc.getAccount(data.address);
+        const contract = new Contract(CONTRACT_ID);
+        let transaction = new TransactionBuilder(account, { fee: '10000000', networkPassphrase: Networks.PUBLIC })
+            .addOperation(contract.call("mine",
+                xdr.ScVal.scvBytes(Buffer.from(data.hash, "hex")),
+                xdr.ScVal.scvString(data.message),
+                nativeToScVal(data.nonce, { type: "u64" }),
+                new Address(data.address).toScVal()))
+            .setTimeout(300)
+            .build();
+        transaction = await rpc.prepareTransaction(transaction);
+        transaction.sign(Keypair.fromSecret(signers[data.address]));
+        return await rpc.sendTransaction(transaction);
+    }
 }
 
 app.get('/data', (_req, res) => {
@@ -105,11 +115,7 @@ app.get('/data', (_req, res) => {
 app.get('/submit', async(req, res) => {
     const { hash, nonce, message, address } = req.query;
     try {
-        if (StrKey.isValidEd25519SecretSeed(signer)) {
-            res.json({ result : await sdkSubmit({ hash, nonce, message, address }) });
-        } else {
-            res.json({ result : cliSubmit({ hash, nonce, message, address }) });
-        }      
+        res.json({ result : await submit({ hash, nonce, message, address }) }); 
     } catch (error) {
         console.error('Failed to execute command:', error.message);
         res.status(500).send(error.message);
